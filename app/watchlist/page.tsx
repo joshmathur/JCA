@@ -1,9 +1,10 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { Search, Plus, Loader2, X, TrendingUp, TrendingDown } from 'lucide-react';
+import { Search, Plus, Loader2, X, TrendingUp, TrendingDown, Sparkles, AlertCircle } from 'lucide-react';
 import { CoinSearchResult, CoinPrice } from '@/types/coin';
 import { WatchlistEntry } from '@/types/watchlist';
+import { AIAnalysis } from '@/types/analysis';
 
 export default function WatchlistPage() {
   // Holds whatever the user is typing into the search bar
@@ -30,6 +31,17 @@ export default function WatchlistPage() {
 
   // Tracks which entry id is currently being removed
   const [removingId, setRemovingId] = useState<string | null>(null);
+
+  // Completed AI analyses, keyed by coin_id
+  const [analyses, setAnalyses] = useState<Record<string, AIAnalysis>>({});
+
+  // Coin_ids currently being analyzed — a Set so multiple cards can be
+  // analyzing at once without stepping on each other's loading state
+  const [analyzingIds, setAnalyzingIds] = useState<Set<string>>(new Set());
+
+  // Error messages from failed analysis calls, keyed by coin_id
+  const [analysisErrors, setAnalysisErrors] = useState<Record<string, string>>({});
+
  // Runs once when the page first loads, then sets up auto-refresh
   useEffect(() => {
     // Initial load
@@ -175,6 +187,44 @@ export default function WatchlistPage() {
     }
   };
 
+  // Called when the user clicks "Analyze" on a coin card
+  const handleAnalyze = async (coinId: string) => {
+    setAnalyzingIds((prev) => new Set(prev).add(coinId));
+
+    // Clear any previous error for this coin before retrying
+    setAnalysisErrors((prev) => {
+      const next = { ...prev };
+      delete next[coinId];
+      return next;
+    });
+
+    try {
+      const res = await fetch('/api/ai/analyze', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ coin_id: coinId }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || 'Analysis failed');
+      }
+
+      setAnalyses((prev) => ({ ...prev, [coinId]: data as AIAnalysis }));
+    } catch (error) {
+      console.error('Analyze error:', error);
+      const message = error instanceof Error ? error.message : 'Something went wrong';
+      setAnalysisErrors((prev) => ({ ...prev, [coinId]: message }));
+    } finally {
+      setAnalyzingIds((prev) => {
+        const next = new Set(prev);
+        next.delete(coinId);
+        return next;
+      });
+    }
+  };
+
   return (
     <div className="p-6 max-w-3xl mx-auto">
       <h1 className="text-2xl font-bold mb-4">Watchlist</h1>
@@ -243,6 +293,9 @@ export default function WatchlistPage() {
           {watchlist.map((entry) => {
             const price = prices[entry.coin_id];
             const isPositive = (price?.price_change_percentage_24h ?? 0) >= 0;
+            const analysis = analyses[entry.coin_id];
+            const isAnalyzing = analyzingIds.has(entry.coin_id);
+            const analysisError = analysisErrors[entry.coin_id];
 
             return (
               <div
@@ -295,6 +348,78 @@ export default function WatchlistPage() {
                   </>
                 ) : (
                   <p className="text-sm text-gray-400">Price unavailable</p>
+                )}
+
+                {/* Analyze button */}
+                <button
+                  onClick={() => handleAnalyze(entry.coin_id)}
+                  disabled={isAnalyzing}
+                  className="mt-3 w-full flex items-center justify-center gap-1.5 text-sm px-3 py-1.5 bg-purple-500 text-white rounded-md hover:bg-purple-600 disabled:opacity-50"
+                >
+                  {isAnalyzing ? (
+                    <>
+                      <Loader2 className="w-3 h-3 animate-spin" />
+                      Analyzing...
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="w-3 h-3" />
+                      {analysis ? 'Re-analyze' : 'Analyze'}
+                    </>
+                  )}
+                </button>
+
+                {/* Error state */}
+                {analysisError && (
+                  <div className="mt-2 flex items-start gap-1.5 text-xs text-red-600 bg-red-50 rounded-md p-2">
+                    <AlertCircle className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
+                    <span>{analysisError}</span>
+                  </div>
+                )}
+
+                {/* Analysis result */}
+                {/* Analysis result */}
+                {analysis && (
+                  <div className="mt-3 pt-3 border-t border-gray-100 space-y-1.5 text-xs">
+                    {analysis.outlook === 'unfavorable' ? (
+                      <p className="text-red-700 font-medium pt-1">
+                        No position recommended right now.
+                      </p>
+                    ) : (
+                      <>
+                        <div className="flex justify-between gap-2 pt-1">
+                          <span className="text-gray-500 flex-shrink-0">Entry</span>
+                          <span className="font-medium text-gray-900 text-right">{analysis.entryZone}</span>
+                        </div>
+                        <div className="flex justify-between gap-2">
+                          <span className="text-gray-500 flex-shrink-0">Exit</span>
+                          <span className="font-medium text-gray-900 text-right">{analysis.exitZone}</span>
+                        </div>
+                        <div className="flex justify-between gap-2">
+                          <span className="text-gray-500 flex-shrink-0">Stop-loss</span>
+                          <span className="font-medium text-gray-900 text-right">{analysis.stopLoss}</span>
+                        </div>
+                      </>
+                    )}
+
+                    <p className="text-gray-600 pt-1">{analysis.reasoning}</p>
+                    <div className="flex items-center gap-2 pt-1">
+                      <span
+                        className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${
+                          analysis.confidence === 'high'
+                            ? 'bg-green-100 text-green-700'
+                            : analysis.confidence === 'medium'
+                            ? 'bg-yellow-100 text-yellow-700'
+                            : 'bg-gray-100 text-gray-700'
+                        }`}
+                      >
+                        {analysis.confidence} confidence
+                      </span>
+                      <span className="text-[10px] text-gray-400">
+                        {analysis.newsBased ? '📰 News-informed' : '📊 Price action only'}
+                      </span>
+                    </div>
+                  </div>
                 )}
               </div>
             );
