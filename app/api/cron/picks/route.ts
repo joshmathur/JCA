@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { generateAndSavePicks } from '@/lib/generatePicks';
-
 // GET /api/cron/picks - triggered daily by Vercel Cron once deployed
 // (vercel.json schedule added in Part 5). Secured with CRON_SECRET so only
 // Vercel's scheduler can trigger this — this route makes paid Claude API calls.

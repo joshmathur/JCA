@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Anthropic from '@anthropic-ai/sdk';
+import { createClient } from '@/lib/supabase/server';
 import { CoinPrice } from '@/types/coin';
 import { NewsArticle } from '@/types/news';
 import { AIAnalysis } from '@/types/analysis';
@@ -50,6 +51,13 @@ function isValidAnalysis(obj: any): obj is AIAnalysis {
 }
 
 export async function POST(request: NextRequest) {
+  const supabaseAuth = await createClient();
+  const { data: { user } } = await supabaseAuth.auth.getUser();
+
+  if (!user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   try {
     const body = await request.json();
     const { coin_id } = body;

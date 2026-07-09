@@ -1,10 +1,17 @@
 import { NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
-import { generateAndSavePicks } from '@/lib/generatePicks';
+import { createClient } from '@/lib/supabase/server';
 
 // GET /api/ai/picks - returns the most recently saved picks (used by the
-// Picks page on load — cheap read, no auth needed)
+// Picks page on load — requires a logged-in user)
 export async function GET() {
+  const supabaseAuth = await createClient();
+  const { data: { user } } = await supabaseAuth.auth.getUser();
+
+  if (!user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   try {
     const { data, error } = await supabase
       .from('picks')
@@ -17,18 +24,5 @@ export async function GET() {
   } catch (error) {
     console.error('[GET /api/ai/picks] Error:', error);
     return NextResponse.json({ error: 'Failed to fetch saved picks' }, { status: 500 });
-  }
-}
-
-// POST /api/ai/picks - manually triggers pick generation.
-// DEV/TESTING TOOL ONLY — remove or gate this behind auth before production,
-// once the cron job (app/api/cron/picks) is confirmed working. See Part 4 summary.
-export async function POST() {
-  try {
-    const result = await generateAndSavePicks();
-    return NextResponse.json(result);
-  } catch (error) {
-    console.error('[POST /api/ai/picks] Error:', error);
-    return NextResponse.json({ error: 'Failed to generate picks' }, { status: 500 });
   }
 }
