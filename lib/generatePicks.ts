@@ -1,5 +1,5 @@
 import Anthropic from '@anthropic-ai/sdk';
-import { supabase } from '@/lib/supabase';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { CoinPrice } from '@/types/coin';
 import { NewsArticle } from '@/types/news';
 import { Pick, PicksResponse } from '@/types/picks';
@@ -54,9 +54,10 @@ function isValidPicksResponse(obj: any): obj is PicksResponse {
 // Fetches trending candidates, filters by market cap, pulls general news,
 // asks Claude to select today's standout picks, and writes them to Supabase
 // (replacing prior picks only if the new batch is non-empty).
-// Shared by the manual POST trigger and the cron-triggered route so both
-// stay in sync automatically — one implementation, two callers.
+// Called by the cron-triggered route only — uses the admin client since
+// this runs with no logged-in user and picks are shared, not per-user data.
 export async function generateAndSavePicks(): Promise<PicksResponse> {
+  const supabase = createAdminClient();
   const baseUrl = getBaseUrl();
 
   const trendingRes = await fetch(`${baseUrl}/api/coins?trending=true`);

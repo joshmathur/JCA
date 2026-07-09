@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { supabase } from "@/lib/supabase";
+import { createClient } from '@/lib/supabase/client';
 import { NewsArticle } from "@/types/news";
 import { WatchlistEntry } from "@/types/watchlist";
 
@@ -27,6 +27,7 @@ export default function NewsPage() {
   // Fetch the user's watchlist coin names from Supabase
   useEffect(() => {
     async function loadWatchlist() {
+      const supabase = createClient();
       const { data, error } = await supabase
         .from("watchlist")
         .select("name");

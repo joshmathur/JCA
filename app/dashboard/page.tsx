@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { NewsArticle } from "@/types/news";
 import { CoinPrice } from "@/types/coin";
 import { WatchlistEntry } from "@/types/watchlist";
-import { supabase } from "@/lib/supabase";
+import { createClient } from '@/lib/supabase/client';
 import Link from "next/link";
 
 function timeAgo(dateString: string): string {
@@ -28,6 +28,7 @@ export default function DashboardPage() {
     async function fetchWatchlistPrices() {
       try {
         // Step 1: get coin IDs from Supabase
+        const supabase = createClient();
         const { data, error } = await supabase
           .from("watchlist")
           .select("coin_id");

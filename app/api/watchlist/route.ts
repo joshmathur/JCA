@@ -1,9 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import { createClient } from '@/lib/supabase/server';
 import { NewWatchlistEntry, WatchlistEntry } from '@/types/watchlist';
 
-// GET /api/watchlist - returns all coins in the watchlist
+// GET /api/watchlist - returns the logged-in user's watchlist
 export async function GET() {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+
+  if (!user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   try {
     const { data, error } = await supabase
       .from('watchlist')
@@ -23,8 +30,15 @@ export async function GET() {
   }
 }
 
-// POST /api/watchlist - adds a coin to the watchlist
+// POST /api/watchlist - adds a coin to the logged-in user's watchlist
 export async function POST(request: NextRequest) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+
+  if (!user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   try {
     const body = await request.json();
 
@@ -54,10 +68,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const newEntry: NewWatchlistEntry = {
+    const newEntry: NewWatchlistEntry & { user_id: string } = {
       coin_id: coin_id.trim(),
       symbol: symbol.trim().toLowerCase(),
       name: name.trim(),
+      user_id: user.id,
     };
 
     const { data, error } = await supabase
