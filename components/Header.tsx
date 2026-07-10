@@ -38,12 +38,14 @@ export default function Header() {
   return (
     <header className="w-full h-14 bg-gray-950 text-white flex items-center justify-between px-6 border-b border-gray-800">
       <div className="flex items-center">
+        <a href="/" className="flex items-center">
         <span className="text-lg font-bold tracking-wide text-blue-400">
           JCA
         </span>
         <span className="ml-2 text-sm text-gray-400">
           Josh&apos;s Crypto Aid
         </span>
+        </a>
       </div>
 
       {loading ? null : user ? (
