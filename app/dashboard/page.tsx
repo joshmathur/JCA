@@ -22,6 +22,17 @@ export default function DashboardPage() {
   const [newsLoading, setNewsLoading] = useState(true);
   const [coins, setCoins] = useState<CoinPrice[]>([]);
   const [coinsLoading, setCoinsLoading] = useState(true);
+  const [userEmail, setUserEmail] = useState<string | null>(null);
+
+  // Fetch logged-in user's email
+  useEffect(() => {
+    async function fetchUser() {
+      const supabase = createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      setUserEmail(user?.email ?? null);
+    }
+    fetchUser();
+  }, []);
 
   // Fetch watchlist coins + live prices
   useEffect(() => {
@@ -72,9 +83,15 @@ export default function DashboardPage() {
     fetchNews();
   }, []);
 
-  return (
+ return (
     <div className="p-6 max-w-4xl mx-auto">
-      <h1 className="text-2xl font-bold text-white mb-6">Dashboard</h1>
+      <h1 className="text-2xl font-bold text-white mb-1">Dashboard</h1>
+      {userEmail && (
+        <p className="text-sm text-gray-400 mb-6">
+          Welcome back, {userEmail}
+        </p>
+      )}
+      {!userEmail && <div className="mb-6" />}
 
       {/* Watchlist Summary */}
       <div className="bg-gray-800 border border-gray-700 rounded-xl p-5 mb-6">

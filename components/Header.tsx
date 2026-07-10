@@ -1,11 +1,33 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
+import type { User } from '@supabase/supabase-js';
 
 export default function Header() {
   const router = useRouter();
   const supabase = createClient();
+  const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      setUser(user);
+      setLoading(false);
+    });
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, [supabase]);
 
   async function handleLogout() {
     await supabase.auth.signOut();
@@ -24,12 +46,24 @@ export default function Header() {
         </span>
       </div>
 
-      <button
-        onClick={handleLogout}
-        className="text-sm text-gray-400 hover:text-white transition-colors"
-      >
-        Log out
-      </button>
+      {loading ? null : user ? (
+        <div className="flex items-center gap-4">
+          <span className="text-sm text-gray-400">{user.email}</span>
+          <button
+            onClick={handleLogout}
+            className="text-sm text-gray-400 hover:text-white transition-colors"
+          >
+            Log out
+          </button>
+        </div>
+      ) : (
+        <Link
+          href="/login"
+          className="text-sm text-gray-400 hover:text-white transition-colors"
+        >
+          Log In
+        </Link>
+      )}
     </header>
   );
 }
