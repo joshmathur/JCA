@@ -1,8 +1,17 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
+import {
+  AuthShell,
+  Field,
+  GoogleButton,
+  OrDivider,
+  SubmitButton,
+  AuthAlert,
+} from '@/components/auth/AuthUI';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -40,41 +49,53 @@ export default function LoginPage() {
   }
 
   return (
-    <div style={{ maxWidth: 400, margin: '80px auto' }}>
-      <h1>Log in to JCA</h1>
+    <AuthShell
+      title="Welcome back"
+      subtitle="Log in to your JCA research space"
+      footer={
+        <>
+          No account?{' '}
+          <Link
+            href="/signup"
+            className="font-medium text-primary underline-offset-4 transition-colors hover:text-foreground hover:underline"
+          >
+            Sign up
+          </Link>
+        </>
+      }
+    >
+      <GoogleButton onClick={handleGoogleLogin}>Continue with Google</GoogleButton>
 
-      <button onClick={handleGoogleLogin} style={{ width: '100%', padding: 10, marginBottom: 16 }}>
-        Continue with Google
-      </button>
+      <OrDivider />
 
-      <div style={{ textAlign: 'center', margin: '16px 0' }}>or</div>
-
-      <form onSubmit={handleEmailLogin}>
-        <input
+      <form onSubmit={handleEmailLogin} className="space-y-4">
+        <Field
+          id="email"
+          label="Email"
           type="email"
-          placeholder="Email"
+          placeholder="you@example.com"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           required
-          style={{ width: '100%', padding: 8, marginBottom: 8 }}
+          autoComplete="email"
         />
-        <input
+        <Field
+          id="password"
+          label="Password"
           type="password"
-          placeholder="Password"
+          placeholder="••••••••"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           required
-          style={{ width: '100%', padding: 8, marginBottom: 8 }}
+          autoComplete="current-password"
         />
-        {error && <p style={{ color: 'red', fontSize: 14 }}>{error}</p>}
-        <button type="submit" disabled={loading} style={{ width: '100%', padding: 10 }}>
-          {loading ? 'Logging in...' : 'Log in'}
-        </button>
-      </form>
 
-      <p style={{ marginTop: 16, fontSize: 14 }}>
-        No account? <a href="/signup">Sign up</a>
-      </p>
-    </div>
+        <AuthAlert message={error} tone="error" />
+
+        <SubmitButton loading={loading} loadingText="Logging in…">
+          Log in
+        </SubmitButton>
+      </form>
+    </AuthShell>
   );
 }

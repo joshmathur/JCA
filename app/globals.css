@@ -1,4 +1,213 @@
 @import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@custom-variant dark (&:is(.dark *));
 
 @source "./";
 @source "../components";
+
+/* ---------------------------------------------------------------------------
+   Theme tokens — "dark forest". The whole app is dark, so the forest palette
+   lives on :root directly (no dark-class toggle needed). Values map the JCA
+   brief's hex palette onto shadcn's token names so every shadcn component
+   (Button, Card, Badge, Input…) inherits the theme automatically.
+--------------------------------------------------------------------------- */
+@theme inline {
+    --font-heading: var(--font-fraunces);
+    --font-sans: var(--font-dm-sans);
+
+    --color-sidebar-ring: var(--sidebar-ring);
+    --color-sidebar-border: var(--sidebar-border);
+    --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+    --color-sidebar-accent: var(--sidebar-accent);
+    --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+    --color-sidebar-primary: var(--sidebar-primary);
+    --color-sidebar-foreground: var(--sidebar-foreground);
+    --color-sidebar: var(--sidebar);
+    --color-chart-5: var(--chart-5);
+    --color-chart-4: var(--chart-4);
+    --color-chart-3: var(--chart-3);
+    --color-chart-2: var(--chart-2);
+    --color-chart-1: var(--chart-1);
+    --color-ring: var(--ring);
+    --color-input: var(--input);
+    --color-border: var(--border);
+    --color-destructive: var(--destructive);
+    --color-accent-foreground: var(--accent-foreground);
+    --color-accent: var(--accent);
+    --color-muted-foreground: var(--muted-foreground);
+    --color-muted: var(--muted);
+    --color-secondary-foreground: var(--secondary-foreground);
+    --color-secondary: var(--secondary);
+    --color-primary-foreground: var(--primary-foreground);
+    --color-primary: var(--primary);
+    --color-popover-foreground: var(--popover-foreground);
+    --color-popover: var(--popover);
+    --color-card-foreground: var(--card-foreground);
+    --color-card: var(--card);
+    --color-foreground: var(--foreground);
+    --color-background: var(--background);
+
+    /* JCA-specific semantic colors */
+    --color-positive: var(--positive);
+    --color-negative: var(--negative);
+
+    --radius-sm: calc(var(--radius) * 0.6);
+    --radius-md: calc(var(--radius) * 0.8);
+    --radius-lg: var(--radius);
+    --radius-xl: calc(var(--radius) * 1.4);
+    --radius-2xl: calc(var(--radius) * 1.8);
+    --radius-3xl: calc(var(--radius) * 2.2);
+    --radius-4xl: calc(var(--radius) * 2.6);
+}
+
+:root {
+    /* Deep forest surfaces */
+    --background: #0a0c0a;
+    --foreground: #e8ead0;
+    --card: #111a11;
+    --card-foreground: #e8ead0;
+    --popover: #111a11;
+    --popover-foreground: #e8ead0;
+
+    /* Accents */
+    --primary: #5a8a5a;
+    --primary-foreground: #06120a;
+    --secondary: #3d5c3d;
+    --secondary-foreground: #e8ead0;
+
+    /* Muted / hover surfaces */
+    --muted: #16221a;
+    --muted-foreground: #8a9a7a;
+    --accent: #1e3a1e;
+    --accent-foreground: #e8ead0;
+
+    /* Feedback */
+    --destructive: #8b3a2a;
+    --positive: #4a7c4a;
+    --negative: #8b3a2a;
+
+    /* Lines & focus */
+    --border: #1e3a1e;
+    --input: #1e3a1e;
+    --ring: #5a8a5a;
+
+    /* Charts — forest-graded greens + a warm outlier */
+    --chart-1: #5a8a5a;
+    --chart-2: #4a7c4a;
+    --chart-3: #3d5c3d;
+    --chart-4: #8a9a7a;
+    --chart-5: #c2a878;
+
+    /* Generous, soft rounding */
+    --radius: 0.9rem;
+
+    /* Sidebar (app chrome) */
+    --sidebar: #0d140d;
+    --sidebar-foreground: #e8ead0;
+    --sidebar-primary: #5a8a5a;
+    --sidebar-primary-foreground: #06120a;
+    --sidebar-accent: #1e3a1e;
+    --sidebar-accent-foreground: #e8ead0;
+    --sidebar-border: #1e3a1e;
+    --sidebar-ring: #5a8a5a;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+    /* Base atmosphere: a barely-there radial warmth from the top so the page
+       never reads as flat black. */
+    background-image:
+      radial-gradient(120% 80% at 50% -10%, rgba(90, 138, 90, 0.06), transparent 60%);
+    background-attachment: fixed;
+  }
+  html {
+    @apply font-sans;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+  h1, h2, h3, h4 {
+    @apply font-heading tracking-tight;
+    font-optical-sizing: auto;
+  }
+  ::selection {
+    background: rgba(90, 138, 90, 0.35);
+    color: var(--foreground);
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   Nature-motif utilities
+--------------------------------------------------------------------------- */
+@layer utilities {
+  /* Soft organic grain overlaid on card surfaces. Extremely subtle — reads as
+     texture, not noise. Element must be able to host an absolute ::before. */
+  .surface-grain {
+    position: relative;
+    isolation: isolate;
+  }
+  .surface-grain::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    border-radius: inherit;
+    pointer-events: none;
+    opacity: 0.04;
+    mix-blend-mode: soft-light;
+    background-image:
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"),
+      repeating-linear-gradient(94deg, rgba(255, 255, 255, 0.014) 0 1px, transparent 1px 6px);
+  }
+
+  /* Thin organic divider — a hairline that fades out at both ends instead of a
+     hard edge-to-edge border. */
+  .divider-organic {
+    height: 1px;
+    border: 0;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      color-mix(in oklab, var(--border) 90%, var(--primary)) 50%,
+      transparent
+    );
+  }
+
+  /* Soft, layered shadow used on floating cards. */
+  .shadow-forest {
+    box-shadow:
+      0 1px 0 0 rgba(255, 255, 255, 0.02) inset,
+      0 10px 30px -12px rgba(0, 0, 0, 0.7),
+      0 4px 10px -6px rgba(0, 0, 0, 0.5);
+  }
+
+  /* Text gradient for hero / brand moments. */
+  .text-forest-gradient {
+    background: linear-gradient(180deg, #e8ead0 0%, #8a9a7a 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   Motion — page/route transitions are handled by <PageTransition> (Motion,
+   keyed on pathname). Motion also reads prefers-reduced-motion via
+   <MotionConfig reducedMotion="user">, so this is just a CSS backstop for any
+   plain-CSS animations/transitions.
+--------------------------------------------------------------------------- */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

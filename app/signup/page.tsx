@@ -1,8 +1,17 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
+import {
+  AuthShell,
+  Field,
+  GoogleButton,
+  OrDivider,
+  SubmitButton,
+  AuthAlert,
+} from '@/components/auth/AuthUI';
 
 export default function SignupPage() {
   const [email, setEmail] = useState('');
@@ -48,43 +57,55 @@ export default function SignupPage() {
   }
 
   return (
-    <div style={{ maxWidth: 400, margin: '80px auto' }}>
-      <h1>Sign up for JCA</h1>
+    <AuthShell
+      title="Create your account"
+      subtitle="Start your JCA research space"
+      footer={
+        <>
+          Already have an account?{' '}
+          <Link
+            href="/login"
+            className="font-medium text-primary underline-offset-4 transition-colors hover:text-foreground hover:underline"
+          >
+            Log in
+          </Link>
+        </>
+      }
+    >
+      <GoogleButton onClick={handleGoogleSignup}>Continue with Google</GoogleButton>
 
-      <button onClick={handleGoogleSignup} style={{ width: '100%', padding: 10, marginBottom: 16 }}>
-        Continue with Google
-      </button>
+      <OrDivider />
 
-      <div style={{ textAlign: 'center', margin: '16px 0' }}>or</div>
-
-      <form onSubmit={handleEmailSignup}>
-        <input
+      <form onSubmit={handleEmailSignup} className="space-y-4">
+        <Field
+          id="email"
+          label="Email"
           type="email"
-          placeholder="Email"
+          placeholder="you@example.com"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           required
-          style={{ width: '100%', padding: 8, marginBottom: 8 }}
+          autoComplete="email"
         />
-        <input
+        <Field
+          id="password"
+          label="Password"
           type="password"
-          placeholder="Password (min 6 characters)"
+          placeholder="At least 6 characters"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           required
           minLength={6}
-          style={{ width: '100%', padding: 8, marginBottom: 8 }}
+          autoComplete="new-password"
         />
-        {error && <p style={{ color: 'red', fontSize: 14 }}>{error}</p>}
-        {message && <p style={{ color: 'green', fontSize: 14 }}>{message}</p>}
-        <button type="submit" disabled={loading} style={{ width: '100%', padding: 10 }}>
-          {loading ? 'Signing up...' : 'Sign up'}
-        </button>
-      </form>
 
-      <p style={{ marginTop: 16, fontSize: 14 }}>
-        Already have an account? <a href="/login">Log in</a>
-      </p>
-    </div>
+        <AuthAlert message={error} tone="error" />
+        <AuthAlert message={message} tone="success" />
+
+        <SubmitButton loading={loading} loadingText="Signing up…">
+          Sign up
+        </SubmitButton>
+      </form>
+    </AuthShell>
   );
 }

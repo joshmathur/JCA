@@ -6,6 +6,8 @@ import { CoinPrice } from "@/types/coin";
 import { WatchlistEntry } from "@/types/watchlist";
 import { createClient } from '@/lib/supabase/client';
 import Link from "next/link";
+import { motion, type Variants } from "motion/react";
+import { ArrowUpRight, ArrowDownRight, ArrowRight, Star, Newspaper } from "lucide-react";
 
 function timeAgo(dateString: string): string {
   const now = new Date();
@@ -16,6 +18,24 @@ function timeAgo(dateString: string): string {
   if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
   return `${Math.floor(seconds / 86400)}d ago`;
 }
+
+const panelVariants: Variants = {
+  hidden: { opacity: 0, y: 20 },
+  show: (i: number) => ({
+    opacity: 1,
+    y: 0,
+    transition: { duration: 0.55, delay: i * 0.1, ease: [0.22, 1, 0.36, 1] },
+  }),
+};
+
+const coinGrid: Variants = {
+  hidden: {},
+  show: { transition: { staggerChildren: 0.05 } },
+};
+const coinItem: Variants = {
+  hidden: { opacity: 0, y: 10 },
+  show: { opacity: 1, y: 0, transition: { duration: 0.4, ease: [0.22, 1, 0.36, 1] } },
+};
 
 export default function DashboardPage() {
   const [articles, setArticles] = useState<NewsArticle[]>([]);
@@ -83,122 +103,134 @@ export default function DashboardPage() {
     fetchNews();
   }, []);
 
- return (
-    <div className="p-6 max-w-4xl mx-auto">
-      <h1 className="text-2xl font-bold text-white mb-1">Dashboard</h1>
-      {userEmail && (
-        <p className="text-sm text-gray-400 mb-6">
-          Welcome back, {userEmail}
+  return (
+    <div className="mx-auto max-w-4xl">
+      {/* Welcome */}
+      <motion.header
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+        className="mb-10"
+      >
+        <h1 className="font-heading text-3xl font-semibold tracking-tight sm:text-4xl">
+          Dashboard
+        </h1>
+        <p className="mt-2 h-5 text-sm text-muted-foreground">
+          {userEmail ? <>Welcome back, <span className="text-foreground/80">{userEmail}</span></> : null}
         </p>
-      )}
-      {!userEmail && <div className="mb-6" />}
+      </motion.header>
 
       {/* Watchlist Summary */}
-      <div className="bg-gray-800 border border-gray-700 rounded-xl p-5 mb-6">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold text-white">My Watchlist</h2>
-          <Link
-            href="/watchlist"
-            className="text-sm text-blue-400 hover:text-blue-300 transition-colors"
-          >
-            Manage →
-          </Link>
-        </div>
+      <motion.section
+        custom={0}
+        variants={panelVariants}
+        initial="hidden"
+        animate="show"
+        className="surface-grain mb-6 rounded-3xl border border-border/70 bg-card/80 p-6 shadow-forest"
+      >
+        <PanelHeader icon={Star} title="My Watchlist" href="/watchlist" cta="Manage" />
 
         {coinsLoading && (
-          <div className="text-gray-400 text-sm">Loading prices...</div>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <div key={i} className="h-[92px] animate-pulse rounded-2xl bg-muted/50" />
+            ))}
+          </div>
         )}
 
         {!coinsLoading && coins.length === 0 && (
-          <div className="text-gray-400 text-sm">
+          <EmptyState>
             No coins in your watchlist yet.{" "}
-            <Link href="/watchlist" className="text-blue-400 hover:underline">
+            <Link href="/watchlist" className="font-medium text-primary hover:underline">
               Add some →
             </Link>
-          </div>
+          </EmptyState>
         )}
 
         {!coinsLoading && coins.length > 0 && (
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+          <motion.div
+            variants={coinGrid}
+            initial="hidden"
+            animate="show"
+            className="grid grid-cols-2 gap-3 sm:grid-cols-3"
+          >
             {coins.map((coin) => {
               const isPositive = coin.price_change_percentage_24h >= 0;
               return (
-                <div
+                <motion.div
                   key={coin.id}
-                  className="bg-gray-700 rounded-lg p-3 flex flex-col gap-1"
+                  variants={coinItem}
+                  whileHover={{ y: -4 }}
+                  transition={{ type: "spring", stiffness: 400, damping: 25 }}
+                  className="flex flex-col gap-1 rounded-2xl border border-border/50 bg-background/40 p-3.5 transition-colors hover:border-primary/40"
                 >
                   <div className="flex items-center gap-2">
-                    <img
-                      src={coin.image}
-                      alt={coin.name}
-                      className="w-5 h-5 rounded-full"
-                    />
-                    <span className="text-white text-sm font-medium">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={coin.image} alt={coin.name} className="size-5 rounded-full" />
+                    <span className="text-sm font-medium text-muted-foreground">
                       {coin.symbol.toUpperCase()}
                     </span>
                   </div>
-                  <span className="text-white font-semibold text-base">
+                  <span className="text-base font-semibold text-foreground">
                     ${coin.current_price.toLocaleString()}
                   </span>
                   <span
-                    className={`text-xs font-medium ${
-                      isPositive ? "text-green-400" : "text-red-400"
+                    className={`inline-flex items-center gap-0.5 text-xs font-semibold ${
+                      isPositive ? "text-positive" : "text-negative"
                     }`}
                   >
-                    {isPositive ? "▲" : "▼"}{" "}
+                    {isPositive ? (
+                      <ArrowUpRight className="size-3.5" />
+                    ) : (
+                      <ArrowDownRight className="size-3.5" />
+                    )}
                     {Math.abs(coin.price_change_percentage_24h).toFixed(2)}%
                   </span>
-                </div>
+                </motion.div>
               );
             })}
-          </div>
+          </motion.div>
         )}
-      </div>
+      </motion.section>
 
       {/* Latest News */}
-      <div className="bg-gray-800 border border-gray-700 rounded-xl p-5">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold text-white">Latest News</h2>
-          <Link
-            href="/news"
-            className="text-sm text-blue-400 hover:text-blue-300 transition-colors"
-          >
-            View all →
-          </Link>
-        </div>
+      <motion.section
+        custom={1}
+        variants={panelVariants}
+        initial="hidden"
+        animate="show"
+        className="surface-grain rounded-3xl border border-border/70 bg-card/80 p-6 shadow-forest"
+      >
+        <PanelHeader icon={Newspaper} title="Latest News" href="/news" cta="View all" />
 
         {newsLoading && (
-          <div className="text-gray-400 text-sm">Loading news...</div>
+          <div className="flex flex-col gap-3">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <div key={i} className="h-12 animate-pulse rounded-xl bg-muted/50" />
+            ))}
+          </div>
         )}
 
         {!newsLoading && articles.length === 0 && (
-          <div className="text-gray-400 text-sm">No articles available.</div>
+          <EmptyState>No articles available.</EmptyState>
         )}
 
         {!newsLoading && articles.length > 0 && (
-          <div className="flex flex-col gap-3">
+          <div className="flex flex-col">
             {articles.map((article) => (
               <a
                 key={article.url}
                 href={article.url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-start gap-3 group"
+                className="group -mx-2 flex items-start gap-3 rounded-xl px-2 py-3 transition-colors hover:bg-accent/30"
               >
-                <span
-                  className={`mt-0.5 text-xs font-semibold px-2 py-0.5 rounded-full shrink-0 ${
-                    article.source === "CoinDesk"
-                      ? "bg-blue-900 text-blue-300"
-                      : "bg-orange-900 text-orange-300"
-                  }`}
-                >
-                  {article.source}
-                </span>
-                <div className="flex-1 min-w-0">
-                  <p className="text-white text-sm font-medium leading-snug group-hover:text-blue-300 transition-colors line-clamp-2">
+                <SourceBadge source={article.source} />
+                <div className="min-w-0 flex-1">
+                  <p className="line-clamp-2 text-sm font-medium leading-snug text-foreground/90 transition-colors group-hover:text-foreground">
                     {article.title}
                   </p>
-                  <span className="text-gray-500 text-xs">
+                  <span className="text-xs text-muted-foreground/70">
                     {timeAgo(article.publishedAt)}
                   </span>
                 </div>
@@ -206,7 +238,58 @@ export default function DashboardPage() {
             ))}
           </div>
         )}
-      </div>
+      </motion.section>
     </div>
   );
+}
+
+/* --------------------------------------------------------------- primitives */
+
+function PanelHeader({
+  icon: Icon,
+  title,
+  href,
+  cta,
+}: {
+  icon: React.ComponentType<{ className?: string }>;
+  title: string;
+  href: string;
+  cta: string;
+}) {
+  return (
+    <div className="mb-5 flex items-center justify-between">
+      <h2 className="flex items-center gap-2.5 text-lg font-semibold tracking-tight">
+        <span className="inline-flex size-8 items-center justify-center rounded-xl bg-accent/50 text-primary ring-1 ring-inset ring-border/60">
+          <Icon className="size-4" />
+        </span>
+        {title}
+      </h2>
+      <Link
+        href={href}
+        className="group inline-flex items-center gap-1 text-sm font-medium text-muted-foreground transition-colors hover:text-primary"
+      >
+        {cta}
+        <ArrowRight className="size-3.5 transition-transform group-hover:translate-x-0.5" />
+      </Link>
+    </div>
+  );
+}
+
+function SourceBadge({ source }: { source: string }) {
+  const isCoinDesk = source === "CoinDesk";
+  return (
+    <span
+      className={`mt-0.5 shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold ring-1 ring-inset ${
+        isCoinDesk
+          ? "bg-primary/12 text-primary ring-primary/25"
+          : "bg-[#c2a878]/12 text-[#c2a878] ring-[#c2a878]/25"
+      }`}
+    >
+      {source}
+    </span>
+  );
+}
+
+function EmptyState({ children }: { children: React.ReactNode }) {
+  return <div className="text-sm text-muted-foreground">{children}</div>;
 }
