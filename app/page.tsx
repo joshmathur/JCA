@@ -90,7 +90,7 @@ export default function Home() {
           >
             A calm place to research the market. Track your watchlist in real
             time, read the latest news, and let AI surface daily analysis and
-            picks — all in one quiet corner of the forest.
+            picks.
           </motion.p>
 
           <motion.div
@@ -148,8 +148,8 @@ export default function Home() {
             Research, not noise.
           </h2>
           <p className="mx-auto mt-5 max-w-xl text-pretty leading-relaxed text-muted-foreground">
-            JCA is a full-stack research assistant built by Josh — live market
-            data, Supabase auth, and the Claude API for AI-driven analysis. It
+            JCA is a full-stack research assistant, containing live market
+            data, and expert analysis whenever needed. It
             helps you think. It never places a trade.
           </p>
           <div className="mt-10">
