@@ -51,6 +51,23 @@ function isValidAnalysis(obj: any): obj is AIAnalysis {
   );
 }
 
+const PRICE_RANGE_PATTERN = /^\$[\d,]+(?:\.\d+)?\s*[-–—]\s*\$[\d,]+(?:\.\d+)?$/;
+
+function hasValidPriceFormat(analysis: AIAnalysis): boolean {
+  // When outlook is "unfavorable" these three fields get force-overwritten
+  // to a fixed N/A string right after this runs anyway (see below) — so
+  // there's nothing meaningful to check in that branch.
+  if (analysis.outlook === 'unfavorable') return true;
+
+  return (
+    PRICE_RANGE_PATTERN.test(analysis.entryZone.trim()) &&
+    PRICE_RANGE_PATTERN.test(analysis.exitZone.trim()) &&
+    PRICE_RANGE_PATTERN.test(analysis.stopLoss.trim())
+  );
+}
+
+class AnalysisFormatError extends Error {}
+
 export async function POST(request: NextRequest) {
   const supabaseAuth = await createClient();
   const { data: { user } } = await supabaseAuth.auth.getUser();
@@ -121,7 +138,12 @@ Market cap: $${coin.market_cap?.toLocaleString()}
 Fill the fields in the order shown: work out your reasoning first, then commit to an outlook, then the price zones, and only decide confidence last, once everything above is written.
 
 Rules:
-- entryZone, exitZone, and stopLoss should be price ranges or brief qualitative descriptions (e.g. "$62,000-$64,000"), never a single fake-precise number.
+- entryZone, exitZone, and stopLoss must contain ONLY a price range in the exact format "$X–$Y" — nothing else. No qualifiers, no conditions, no explanation, no words at all besides the two dollar amounts and the dash between them. Any reasoning, caveats, or conditions belong in the reasoning field, never in these three fields.
+  - CORRECT entryZone: "$62,000–$64,000"
+  - CORRECT stopLoss: "$59,000–$59,500"
+  - INCORRECT: "Around $62,000–$64,000 if support holds" (extra words attached to an otherwise valid range)
+  - INCORRECT: "Wait for a pullback before entering" (no numbers at all)
+  - The one exception: when outlook is "unfavorable", these three fields must be the fixed phrase "N/A — no position recommended" as specified below — that exact phrase is the only non-numeric value ever allowed here.
 - Be honest about downside risk. If the data suggests this is not currently a good entry — a clear downtrend, no reversal signal, poor risk/reward, negative news — set outlook to "unfavorable" and say so plainly in reasoning. Do not default to "favorable" or soften a bad setup. Recommending caution or avoidance is a valid, expected outcome, not a failure.
 - When outlook is "unfavorable", there is no recommended position, so entryZone, exitZone, and stopLoss must all say "N/A — no position recommended" (or a close variant). Never give a concrete exit or stop-loss price when you are not recommending an entry — that produces a contradictory recommendation.
 - For confidence, decide by testing "high" and "low" FIRST, and only fall to "medium" if the setup fits neither. "medium" is NOT a safe default for "unsure" — it must be earned by the criteria below.
@@ -135,54 +157,71 @@ Rules:
 - reasoning should be 1-3 plain-English sentences a non-expert could understand.
 - This is not financial advice and should read as an informed observation, not a directive.`;
 
-    // 4. Call Claude — prefilled with "{" so the response starts as JSON
-    const response = await anthropic.messages.create({
-      model: 'claude-haiku-4-5-20251001',
-      max_tokens: 700,
-      system: systemPrompt,
-      messages: [
-        { role: 'user', content: userMessage },
-        { role: 'assistant', content: '{' },
-      ],
-    });
+   async function requestAnalysis(): Promise<AIAnalysis> {
+      const response = await anthropic.messages.create({
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 700,
+        system: systemPrompt,
+        messages: [
+          { role: 'user', content: userMessage },
+          { role: 'assistant', content: '{' },
+        ],
+      });
 
-    const textBlock = response.content.find((b) => b.type === 'text');
-    if (!textBlock || textBlock.type !== 'text') {
-      throw new Error('No text response from Claude');
+      const textBlock = response.content.find((b) => b.type === 'text');
+      if (!textBlock || textBlock.type !== 'text') {
+        throw new AnalysisFormatError('No text response from Claude');
+      }
+
+      const rawJson = '{' + textBlock.text;
+
+      let parsed: unknown;
+      try {
+        parsed = JSON.parse(rawJson);
+      } catch (parseError) {
+        throw new AnalysisFormatError(`Unparseable JSON: ${parseError}`);
+      }
+
+      if (!isValidAnalysis(parsed)) {
+        throw new AnalysisFormatError(`Invalid analysis shape: ${JSON.stringify(parsed)}`);
+      }
+
+      if (!hasValidPriceFormat(parsed)) {
+        throw new AnalysisFormatError(
+          `Price fields not in expected format: entryZone="${parsed.entryZone}" exitZone="${parsed.exitZone}" stopLoss="${parsed.stopLoss}"`
+        );
+      }
+
+      if (parsed.outlook === 'unfavorable') {
+        parsed.entryZone = 'N/A — no position recommended';
+        parsed.exitZone = 'N/A — no position recommended';
+        parsed.stopLoss = 'N/A — no position recommended';
+      }
+
+      return parsed;
     }
 
-    const rawJson = '{' + textBlock.text;
-
-    // 5. Parse defensively
-    let parsed: unknown;
+    // 4. Call Claude, retrying once if the response fails validation.
+    // The prompt makes correct output the strong default, not a guarantee —
+    // this is the enforcement backstop for whatever slips through anyway.
+    let analysis: AIAnalysis;
     try {
-      parsed = JSON.parse(rawJson);
-    } catch (parseError) {
-      console.error('[POST /api/ai/analyze] JSON parse error:', parseError, rawJson);
-      return NextResponse.json(
-        { error: 'Claude returned an unparseable response. Please try again.' },
-        { status: 502 }
-      );
+      analysis = await requestAnalysis();
+    } catch (firstError) {
+      console.warn('[POST /api/ai/analyze] First attempt failed validation, retrying once:', firstError);
+      try {
+        analysis = await requestAnalysis();
+      } catch (secondError) {
+        console.error('[POST /api/ai/analyze] Retry also failed:', secondError);
+        return NextResponse.json(
+          { error: 'Claude returned an unexpected response shape. Please try again.' },
+          { status: 502 }
+        );
+      }
     }
 
-    if (!isValidAnalysis(parsed)) {
-      console.error('[POST /api/ai/analyze] Invalid analysis shape:', parsed);
-      return NextResponse.json(
-        { error: 'Claude returned an unexpected response shape. Please try again.' },
-        { status: 502 }
-      );
-    }
-
-    // Enforce this in code rather than trusting prompt compliance alone:
-    // if the model doesn't recommend a position, there must be no
-    // concrete numbers attached to it, no matter what Claude actually wrote.
-    if (parsed.outlook === 'unfavorable') {
-      parsed.entryZone = 'N/A — no position recommended';
-      parsed.exitZone = 'N/A — no position recommended';
-      parsed.stopLoss = 'N/A — no position recommended';
-    }
-
-    return NextResponse.json(parsed);
+    return NextResponse.json(analysis);
+    
   } catch (error) {
     console.error('[POST /api/ai/analyze] Error:', error);
     return NextResponse.json({ error: 'Failed to analyze coin' }, { status: 500 });
